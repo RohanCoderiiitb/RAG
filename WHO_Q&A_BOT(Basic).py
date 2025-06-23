@@ -127,7 +127,8 @@ if __name__=="__main__":
          "https://www.who.int/news-room/fact-sheets/detail/breast-cancer",
          "https://www.who.int/news-room/fact-sheets/detail/hiv-aids",
          "https://www.who.int/news-room/fact-sheets/detail/malaria",
-         "https://www.who.int/news-room/fact-sheets/detail/diabetes"],
+         "https://www.who.int/news-room/fact-sheets/detail/diabetes",
+         "./data/world-health-organization-who.pdf"],
         "./chroma-index",
         "models/embedding-001",
         GOOGLE_API_KEY
