@@ -8,7 +8,6 @@ from langchain.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
 from dotenv import load_dotenv
-import os
 
 load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
@@ -65,6 +64,25 @@ class RAG_indexing:
             search_kwargs = {"k":10}
         )
         return retriever
+    
+def query_translation(raw_query, api_key):
+    llm = ChatGoogleGenerativeAI(
+        model = "gemini-1.5-flash",
+        google_api_key = api_key,
+        temperature = 0
+    )
+    template = """You are a helpful assistant that rewrites user questions to improve document retrieval in a search system.
+                  Your goal is to rewrite the input question to:
+                - Be more specific
+                - Include relevant keywords
+                - Remove ambiguous references
+                - Preserve the original intent
+
+                Original question: "{raw_query}"
+                Rewritten retrieval query:
+               """
+    rewritten_query = llm.invoke(template.format(raw_query=raw_query)).strip()
+    return rewritten_query
 
 class Generator:
 
@@ -74,10 +92,11 @@ class Generator:
         self.retriever = retriever
 
     def generate(self):
-        template = """Answer the question based only on the following context:
-                      {context}
-
+        template = """You are a helpful AI assistant.
+                      Answer based on the context provided. 
+                      context: {context}. Everything in context is about IIITB.
                       Question: {question}
+                      answer:
                    """
         prompt = ChatPromptTemplate.from_template(template)
 
@@ -113,6 +132,7 @@ if __name__=="__main__":
     while stop==False:
         question = input("Ask: ")
         if question.lower() != "stop":
+            # rewritten_query = query_translation(question, GOOGLE_API_KEY)
             generator = Generator(
             question,
             GOOGLE_API_KEY,

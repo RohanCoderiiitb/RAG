@@ -1,0 +1,25 @@
+Key Focus Areas to Enhance Your RAG Chatbot Project:
+
+1. Multi-turn Conversation & Contextual Memory
+   - Maintain richer conversation history or semantic memory.
+   - Explore conversational memory buffers, windowed context, summarization.
+   - Benefit: Enables coherent follow-up questions and context awareness.
+
+2. Source Attribution & Transparency
+   - Show sources (URLs, document titles) used in answers.
+   - Benefit: Builds trust and allows users to explore further.
+
+3. Multi-format Data Ingestion
+   - Support PDFs, Word docs, scanned docs (OCR).
+   - Benefit: Broadens knowledge base applicability.
+
+4. Query Enhancement and Retrieval Optimization
+   - Improve input query processing: rewriting, expansion, hybrid search.
+   - Benefit: More precise and relevant answers.
+
+Bonus: User Interface and Interaction Design
+   - Polishing UI/UX, conversational elements, voice input/output.
+
+---
+
+Focus on these areas to take your project from foundational to professional-grade.
