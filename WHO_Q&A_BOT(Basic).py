@@ -1,11 +1,10 @@
 import os 
-from langchain_community.document_loaders import WebBaseLoader
+from langchain_community.document_loaders import WebBaseLoader, PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma 
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain.prompts import ChatPromptTemplate
-from dotenv import load_dotenv
+from dotenv import load_dotenv 
 
 load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
@@ -30,9 +29,12 @@ class RAG_indexing:
     def load_documents(self):
         all_docs = []
         for url in self.urls:
-            loader = WebBaseLoader(
-                web_path = [url]
-            )
+            if url.endswith(".pdf"):
+                loader = PyPDFLoader(url)
+            else:
+                loader = WebBaseLoader(
+                    web_path=[url]
+                )
             docs = loader.load()
             for doc in docs:
                 doc.metadata['source'] = url
