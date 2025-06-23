@@ -5,8 +5,6 @@ from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma 
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.runnables import RunnablePassthrough
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -64,24 +62,27 @@ class RAG_indexing:
             search_kwargs = {"k":10}
         )
         return retriever
-    
+
 def query_translation(raw_query, api_key):
     llm = ChatGoogleGenerativeAI(
-        model = "gemini-1.5-flash",
-        google_api_key = api_key,
-        temperature = 0
+        model="gemini-1.5-flash",
+        google_api_key=api_key,
+        temperature=0.3
     )
-    template = """You are a helpful assistant that rewrites user questions to improve document retrieval in a search system.
-                  Your goal is to rewrite the input question to:
-                - Be more specific
-                - Include relevant keywords
-                - Remove ambiguous references
-                - Preserve the original intent
 
-                Original question: "{raw_query}"
-                Rewritten retrieval query:
-               """
-    rewritten_query = llm.invoke(template.format(raw_query=raw_query)).strip()
+    template = """You are a helpful assistant that rewrites user questions to improve document retrieval.
+Your job is to:
+- Make the question more specific.
+- Include important keywords.
+- Remove ambiguity.
+- Keep the original meaning.
+
+Original question: "{query}"
+Rewritten retrieval query:"""
+
+    prompt = ChatPromptTemplate.from_template(template)
+    formatted_prompt = prompt.invoke({"query": raw_query})
+    rewritten_query = llm.invoke(formatted_prompt).content.strip()
     return rewritten_query
 
 class Generator:
@@ -105,14 +106,16 @@ class Generator:
             temperature = 0,
             google_api_key = self.api_key        
         ) 
-        rag_chain = (
-            {"context":self.retriever, "question":RunnablePassthrough()}
-            |prompt
-            |llm
-            |StrOutputParser()
-        )
-        output = rag_chain.invoke(self.question)
-        print(output)
+        retrieved_docs = self.retriever.invoke(self.question)
+        context = "\n\n".join(doc.page_content for doc in retrieved_docs)
+        formatted_prompt = prompt.invoke({"context":context, "question": self.question})
+        answer = llm.invoke(formatted_prompt)
+
+        print(f"Answer: {answer.content}")
+        sources = set(doc.metadata.get("source", "Unknown source") for doc in retrieved_docs)
+        print("Sources:")
+        for source in sources:
+            print(f"🔗 {source}")
         print()
     
 if __name__=="__main__":
@@ -131,10 +134,10 @@ if __name__=="__main__":
     stop = False
     while stop==False:
         question = input("Ask: ")
+        formatted_query = query_translation(question, GOOGLE_API_KEY)
         if question.lower() != "stop":
-            # rewritten_query = query_translation(question, GOOGLE_API_KEY)
             generator = Generator(
-            question,
+            formatted_query,
             GOOGLE_API_KEY,
             retriever
             )
