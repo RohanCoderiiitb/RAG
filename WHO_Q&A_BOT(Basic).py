@@ -72,7 +72,7 @@ class RAG_indexing:
 
 def query_translation(raw_query, api_key, history=None):
     llm = ChatGoogleGenerativeAI(
-        model="gemini-1.5-flash",
+        model="gemini-2.5-flash",
         google_api_key=api_key,
         temperature=0.3
     )
@@ -120,7 +120,7 @@ class Generator:
         prompt = ChatPromptTemplate.from_template(template)
 
         llm = ChatGoogleGenerativeAI(
-            model = "gemini-1.5-flash",
+            model = "gemini-2.5-flash",
             temperature = 0,
             google_api_key = self.api_key        
         ) 
