@@ -1,9 +1,10 @@
 import os 
-from langchain_community.document_loaders import WebBaseLoader, PyPDFLoader
+from langchain_community.document_loaders import WebBaseLoader, PyPDFLoader, UnstructuredPowerPointLoader, UnstructuredWordDocumentLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma 
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain.prompts import ChatPromptTemplate
+from langchain_core.chat_history import InMemoryChatMessageHistory
 from dotenv import load_dotenv 
 
 load_dotenv()
@@ -31,6 +32,10 @@ class RAG_indexing:
         for url in self.urls:
             if url.endswith(".pdf"):
                 loader = PyPDFLoader(url)
+            elif url.endswith(".pptx"):
+                loader = UnstructuredPowerPointLoader(url)
+            elif url.endswith(".docx"):
+                loader = UnstructuredWordDocumentLoader(url)
             else:
                 loader = WebBaseLoader(
                     web_path=[url]
@@ -65,39 +70,50 @@ class RAG_indexing:
         )
         return retriever
 
-def query_translation(raw_query, api_key):
+def query_translation(raw_query, api_key, history=None):
     llm = ChatGoogleGenerativeAI(
         model="gemini-1.5-flash",
         google_api_key=api_key,
         temperature=0.3
     )
 
-    template = """You are a helpful assistant that rewrites user questions to improve document retrieval.
-Your job is to:
-- Make the question more specific.
-- Include important keywords.
-- Remove ambiguity.
-- Keep the original meaning.
+    history_text = ""
+    if history:
+        for msg in history.messages:
+            role = "User" if msg.type=="human" else "Assistant"
+            history_text += f"{role}: {msg.content}\n"
 
-Original question: "{query}"
-Rewritten retrieval query:"""
+    template = """You are a helpful assistant that rewrites user questions to improve document retrieval.
+                  Use conversation history to clarify ambiguous or vague questions.
+
+                  Conversation history: {history}
+                  Original question: "{query}"
+                  Rewritten retrieval query:"""
 
     prompt = ChatPromptTemplate.from_template(template)
-    formatted_prompt = prompt.invoke({"query": raw_query})
+    formatted_prompt = prompt.invoke({"query": raw_query, "history":history_text})
     rewritten_query = llm.invoke(formatted_prompt).content.strip()
     return rewritten_query
 
 class Generator:
 
-    def __init__(self, question, api_key, retriever):
+    def __init__(self, question, api_key, retriever, chat_history):
         self.question = question
         self.api_key = api_key
         self.retriever = retriever
+        self.chat_history = chat_history
 
     def generate(self):
+        history_msg = self.chat_history.messages
+        history_text = ""
+        for msg in history_msg:
+            role = "User" if msg.type=="human" else "Assistant"
+            history_text += f"{role}: {msg.content}\n"
+
         template = """You are a helpful AI assistant.
-                      Answer based on the context provided. 
-                      context: {context}. Everything in context is about IIITB.
+                      Use the conversation history and the retrieved context to answer the user's questions 
+                      Conversation history: {history}
+                      context: {context}
                       Question: {question}
                       answer:
                    """
@@ -110,9 +126,10 @@ class Generator:
         ) 
         retrieved_docs = self.retriever.invoke(self.question)
         context = "\n\n".join(doc.page_content for doc in retrieved_docs)
-        formatted_prompt = prompt.invoke({"context":context, "question": self.question})
+        formatted_prompt = prompt.invoke({"context":context, "question": self.question, "history": history_text})
         answer = llm.invoke(formatted_prompt)
-
+        self.chat_history.add_user_message(self.question)
+        self.chat_history.add_ai_message(answer.content)
         print(f"Answer: {answer.content}")
         sources = set(doc.metadata.get("source", "Unknown source") for doc in retrieved_docs)
         print("Sources:")
@@ -135,14 +152,16 @@ if __name__=="__main__":
     )
     retriever = indexing.build_indexing()
     stop = False
+    chat_history = InMemoryChatMessageHistory()
     while stop==False:
         question = input("Ask: ")
-        formatted_query = query_translation(question, GOOGLE_API_KEY)
+        formatted_query = query_translation(question, GOOGLE_API_KEY, chat_history)
         if question.lower() != "stop":
             generator = Generator(
             formatted_query,
             GOOGLE_API_KEY,
-            retriever
+            retriever,
+            chat_history
             )
             generator.generate()
         else:
